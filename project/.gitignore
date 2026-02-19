@@ -1,0 +1,14 @@
+node_modules/
+artifacts/
+cache/
+typechain-types/
+coverage/
+coverage.json
+
+# Environment secrets — never commit these
+.env
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+*.log
