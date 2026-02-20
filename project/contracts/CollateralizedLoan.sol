@@ -118,6 +118,22 @@ contract CollateralizedLoan is ReentrancyGuard {
     }
 
     // =========================================================================
+    // Internal Helpers
+    // =========================================================================
+
+    /// @dev Return a storage pointer to the loan and revert if it does not exist.
+    function _getLoan(uint256 loanId) internal view returns (Loan storage loan) {
+        loan = loans[loanId];
+        require(loan.borrower != address(0), "Loan does not exist");
+    }
+
+    /// @dev Revert unless the loan has been funded and is not yet closed.
+    function _requireActive(Loan storage loan) internal view {
+        require(loan.isFunded,  "Loan not funded");
+        require(!loan.isRepaid, "Loan already repaid");
+    }
+
+    // =========================================================================
     // Borrower Functions
     // =========================================================================
 
@@ -169,9 +185,8 @@ contract CollateralizedLoan is ReentrancyGuard {
     ///
     /// @param loanId The ID of the funded loan to repay.
     function repayLoan(uint256 loanId) external nonReentrant {
-        Loan storage loan = loans[loanId];
-        require(loan.isFunded, "Loan not funded");
-        require(!loan.isRepaid, "Loan already repaid");
+        Loan storage loan = _getLoan(loanId);
+        _requireActive(loan);
         require(msg.sender == loan.borrower, "Only borrower can repay");
 
         loan.isRepaid = true;
@@ -203,9 +218,8 @@ contract CollateralizedLoan is ReentrancyGuard {
     ///
     /// @param loanId The ID of the funded loan to repay early.
     function earlyRepayLoan(uint256 loanId) external nonReentrant {
-        Loan storage loan = loans[loanId];
-        require(loan.isFunded, "Loan not funded");
-        require(!loan.isRepaid, "Loan already repaid");
+        Loan storage loan = _getLoan(loanId);
+        _requireActive(loan);
         require(msg.sender == loan.borrower, "Only borrower can repay");
         require(block.timestamp < loan.dueDate, "Loan is past due; use repayLoan");
 
@@ -240,8 +254,7 @@ contract CollateralizedLoan is ReentrancyGuard {
     ///
     /// @param loanId The ID of the open loan request to cancel.
     function cancelLoan(uint256 loanId) external nonReentrant {
-        Loan storage loan = loans[loanId];
-        require(loan.borrower != address(0), "Loan does not exist");
+        Loan storage loan = _getLoan(loanId);
         require(msg.sender == loan.borrower, "Only borrower can cancel");
         require(!loan.isFunded, "Cannot cancel a funded loan");
         require(!loan.isCancelled, "Loan already cancelled");
@@ -268,8 +281,7 @@ contract CollateralizedLoan is ReentrancyGuard {
     ///
     /// @param loanId The ID of the loan request to fund.
     function fundLoan(uint256 loanId) external nonReentrant {
-        Loan storage loan = loans[loanId];
-        require(loan.borrower != address(0), "Loan does not exist");
+        Loan storage loan = _getLoan(loanId);
         require(!loan.isFunded, "Loan already funded");
         require(!loan.isCancelled, "Loan has been cancelled");
 
@@ -295,9 +307,8 @@ contract CollateralizedLoan is ReentrancyGuard {
     ///
     /// @param loanId The ID of the defaulted loan.
     function claimCollateral(uint256 loanId) external nonReentrant {
-        Loan storage loan = loans[loanId];
-        require(loan.isFunded, "Loan not funded");
-        require(!loan.isRepaid, "Loan already repaid");
+        Loan storage loan = _getLoan(loanId);
+        _requireActive(loan);
         require(block.timestamp > loan.dueDate, "Loan not yet due");
         require(msg.sender == loan.lender, "Only lender can claim");
 
